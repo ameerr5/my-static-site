@@ -1,310 +1,302 @@
+<!--
+Blood Donation System (Single-file web app)
+Features:
+- Register Donor or Recipient (Name, Role, Blood Group, City, Phone, Notes)
+- Store entries in localStorage
+- List donors and recipients
+- Find matches: same city + compatible blood group (exact match + O- universal donor + optional compat map)
+- Export / Import JSON
+- Simple, responsive UI (vanilla HTML/CSS/JS)
+
+Deployment:
+1. Create a new GitHub repository and push this file as `index.html` to the repo root.
+2. On Vercel, import the GitHub repo, point the project to the repo. Vercel will automatically detect and deploy a static site.
+   - Alternatively, you can deploy using Vercel CLI: `vercel` in the repo folder.
+
+Notes:
+- This is a client-side app (no backend). For production, replace localStorage with a server (Node/Express + DB) and protect user data.
+- The app includes a simple blood-group compatibility system; consult medical professionals for production rules.
+-->
+
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Employee Management Dashboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Blood Donation Match — Local</title>
   <style>
-    /* small custom styles */
-    .sidebar-shadow { box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
-    .table-fixed thead th { position: sticky; top: 0; background: white; }
+    :root{--bg:#f7fafc;--card:#ffffff;--accent:#e53e3e;--muted:#6b7280;--glass:rgba(255,255,255,0.6)}
+    *{box-sizing:border-box;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
+    body{margin:0;background:linear-gradient(180deg,#f8fafc,#edf2f7);min-height:100vh;color:#111827;padding:24px}
+    .container{max-width:1000px;margin:0 auto}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+    header h1{font-size:20px;margin:0}
+    .grid{display:grid;grid-template-columns:1fr 360px;gap:18px}
+    .card{background:var(--card);border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.06);padding:16px}
+    form .row{display:flex;gap:8px;margin-bottom:10px}
+    label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
+    input,select,textarea{width:100%;padding:10px;border:1px solid #e6e9ef;border-radius:8px;font-size:14px}
+    textarea{min-height:68px;resize:vertical}
+    button{background:var(--accent);color:white;border:none;padding:10px 12px;border-radius:8px;cursor:pointer}
+    button.secondary{background:transparent;border:1px solid #cbd5e1;color:#111827}
+    .lists{display:flex;flex-direction:column;gap:12px}
+    .list{max-height:260px;overflow:auto;padding:8px;border-radius:8px;border:1px dashed #e6eef5}
+    .entry{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px}
+    .pill{font-size:12px;padding:6px 8px;border-radius:999px;background:#f3f4f6;border:1px solid #e6e9ef}
+    .match{background:#ecfeff;border:1px solid #bdeefd}
+    .controls{display:flex;gap:8px;flex-wrap:wrap}
+    footer{margin-top:18px;color:var(--muted);font-size:13px}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen font-inter">
-  <div class="flex">
-    <!-- Sidebar -->
-    <aside class="w-72 bg-white h-screen p-6 sidebar-shadow hidden lg:block">
-      <div class="flex items-center gap-3 mb-8">
-        <div class="w-10 h-10 bg-indigo-600 rounded flex items-center justify-center text-white font-bold">EM</div>
-        <div>
-          <h1 class="text-lg font-semibold">EmployeeMS</h1>
-          <p class="text-sm text-gray-500">Admin Dashboard</p>
-        </div>
-      </div>
+<body>
+  <div class="container">
+    <header>
+      <h1>Blood Donation — Local Match</h1>
+      <div style="color:var(--muted);font-size:13px">Register donors & recipients. Matches limited to same city.</div>
+    </header>
 
-      <nav class="space-y-2">
-        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded text-gray-700 bg-gray-100">
-          <!-- Dashboard icon -->
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h18v18H3z"/></svg>
-          Dashboard
-        </a>
-        <a href="#employees" class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-100 text-gray-600">Employees</a>
-        <a href="#attendance" class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-100 text-gray-600">Attendance</a>
-        <a href="#reports" class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-100 text-gray-600">Reports</a>
-        <a href="#settings" class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-100 text-gray-600">Settings</a>
-      </nav>
-
-      <div class="mt-8 text-sm text-gray-500">
-        <p>Logged as: <span class="font-medium text-gray-800">Admin</span></p>
-      </div>
-    </aside>
-
-    <!-- Main content -->
-    <main class="flex-1 p-6">
-      <!-- Topbar -->
-      <header class="flex items-center justify-between mb-6">
-        <div>
-          <h2 class="text-2xl font-semibold">Dashboard</h2>
-          <p class="text-sm text-gray-500">Overview of employees and activity</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <button id="addEmployeeBtn" class="bg-indigo-600 text-white px-4 py-2 rounded shadow">+ Add Employee</button>
-          <div class="flex items-center gap-3">
-            <input id="globalSearch" type="search" placeholder="Search employees..." class="px-3 py-2 border rounded w-64" />
+    <div class="grid">
+      <section class="card">
+        <h3 style="margin-top:0">Register Donor / Recipient</h3>
+        <form id="entryForm">
+          <div class="row">
+            <div style="flex:1">
+              <label for="name">Full Name</label>
+              <input id="name" required />
+            </div>
+            <div style="width:140px">
+              <label for="role">Role</label>
+              <select id="role">
+                <option value="donor">Donor</option>
+                <option value="recipient">Recipient</option>
+              </select>
+            </div>
           </div>
-        </div>
-      </header>
 
-      <!-- KPI cards -->
-      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white p-4 rounded shadow-sm">
-          <p class="text-sm text-gray-500">Total Employees</p>
-          <p id="totalEmployees" class="text-2xl font-bold mt-2">58</p>
+          <div class="row">
+            <div style="flex:1">
+              <label for="blood">Blood Group</label>
+              <select id="blood">
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+              </select>
+            </div>
+            <div style="width:140px">
+              <label for="city">City</label>
+              <input id="city" placeholder="e.g. Lahore" required />
+            </div>
+          </div>
+
+          <div class="row">
+            <div style="flex:1">
+              <label for="phone">Phone / WhatsApp</label>
+              <input id="phone" placeholder="+92xxxxxxxxxx" />
+            </div>
+            <div style="width:140px">
+              <label>&nbsp;</label>
+              <button id="submitBtn" type="submit">Save</button>
+            </div>
+          </div>
+
+          <div style="margin-top:6px">
+            <label for="notes">Notes</label>
+            <textarea id="notes" placeholder="Any additional info (e.g. available dates)"></textarea>
+          </div>
+        </form>
+
+        <hr style="margin:12px 0;border:none;border-top:1px solid #eef2f7" />
+
+        <div class="controls">
+          <button id="exportBtn" class="secondary">Export JSON</button>
+          <button id="importBtn" class="secondary">Import JSON</button>
+          <input id="importFile" type="file" accept="application/json" style="display:none" />
+          <button id="clearBtn" class="secondary">Clear All</button>
+          <button id="seedBtn" class="secondary">Add Sample Data</button>
         </div>
 
-        <div class="bg-white p-4 rounded shadow-sm">
-          <p class="text-sm text-gray-500">Active Today</p>
-          <p id="activeToday" class="text-2xl font-bold mt-2">46</p>
-        </div>
-
-        <div class="bg-white p-4 rounded shadow-sm">
-          <p class="text-sm text-gray-500">Departments</p>
-          <p id="totalDepartments" class="text-2xl font-bold mt-2">6</p>
-        </div>
-
-        <div class="bg-white p-4 rounded shadow-sm">
-          <p class="text-sm text-gray-500">Pending Onboarding</p>
-          <p id="pendingOnboard" class="text-2xl font-bold mt-2 text-amber-600">3</p>
-        </div>
       </section>
 
-      <!-- Employees table -->
-      <section id="employees" class="bg-white p-4 rounded shadow-sm">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold">Employees</h3>
-          <div class="flex items-center gap-3">
-            <select id="filterDept" class="px-3 py-2 border rounded">
-              <option value="">All Departments</option>
-              <option>Engineering</option>
-              <option>Sales</option>
-              <option>HR</option>
-              <option>Finance</option>
-            </select>
-            <select id="filterStatus" class="px-3 py-2 border rounded">
-              <option value="">All Status</option>
-              <option>Active</option>
-              <option>On Leave</option>
-              <option>Inactive</option>
-            </select>
+      <aside class="card">
+        <h4 style="margin-top:0">Quick Actions & Matches</h4>
+        <div style="margin-bottom:10px">
+          <label for="filterCity">Filter City (for listing)</label>
+          <input id="filterCity" placeholder="leave empty to show all" />
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button id="showLists">Show Lists</button>
+          <button id="findMatches">Find Matches</button>
+        </div>
+
+        <h5 style="margin:6px 0">Results</h5>
+        <div class="lists">
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">Donors</div>
+            <div id="donorList" class="list"></div>
+          </div>
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">Recipients</div>
+            <div id="recipientList" class="list"></div>
           </div>
         </div>
-
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y table-fixed">
-            <thead class="border-b">
-              <tr>
-                <th class="text-left p-3 w-1/12">#</th>
-                <th class="text-left p-3 w-2/12">Name</th>
-                <th class="text-left p-3 w-2/12">Email</th>
-                <th class="text-left p-3 w-2/12">Department</th>
-                <th class="text-left p-3 w-1/12">Role</th>
-                <th class="text-left p-3 w-1/12">Status</th>
-                <th class="text-left p-3 w-2/12">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="employeesTbody" class="text-sm divide-y">
-              <!-- rows populated by JS -->
-            </tbody>
-          </table>
-        </div>
-
-        <div class="flex items-center justify-between mt-4">
-          <p id="tableInfo" class="text-sm text-gray-500">Showing 0 of 0 employees</p>
-          <div class="space-x-2">
-            <button id="prevPage" class="px-3 py-1 border rounded">Prev</button>
-            <button id="nextPage" class="px-3 py-1 border rounded">Next</button>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <!-- Modal: Add / Edit Employee -->
-  <div id="modal" class="fixed inset-0 bg-black/40 hidden items-center justify-center p-4">
-    <div class="bg-white rounded-lg w-full max-w-2xl p-6">
-      <div class="flex items-center justify-between mb-4">
-        <h4 id="modalTitle" class="text-lg font-semibold">Add Employee</h4>
-        <button id="closeModal">✕</button>
-      </div>
-
-      <form id="employeeForm" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm text-gray-600">Full Name</label>
-          <input id="name" class="w-full px-3 py-2 border rounded" required />
-        </div>
-        <div>
-          <label class="block text-sm text-gray-600">Email</label>
-          <input id="email" type="email" class="w-full px-3 py-2 border rounded" required />
-        </div>
-        <div>
-          <label class="block text-sm text-gray-600">Department</label>
-          <select id="department" class="w-full px-3 py-2 border rounded">
-            <option>Engineering</option>
-            <option>Sales</option>
-            <option>HR</option>
-            <option>Finance</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm text-gray-600">Role</label>
-          <input id="role" class="w-full px-3 py-2 border rounded" />
-        </div>
-        <div>
-          <label class="block text-sm text-gray-600">Status</label>
-          <select id="status" class="w-full px-3 py-2 border rounded">
-            <option>Active</option>
-            <option>On Leave</option>
-            <option>Inactive</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm text-gray-600">Phone</label>
-          <input id="phone" class="w-full px-3 py-2 border rounded" />
-        </div>
-
-        <div class="sm:col-span-2 text-right mt-2">
-          <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded">Save</button>
-          <button type="button" id="cancelForm" class="px-4 py-2 border rounded ml-2">Cancel</button>
-        </div>
-      </form>
+      </aside>
     </div>
+
+    <footer>
+      <strong>How to use:</strong> Register donors and recipients. Click "Find Matches" to list donor-recipient pairs in the same city and compatible blood groups. Export data to share with others. For production, use a server and authentication.
+    </footer>
   </div>
 
   <script>
-    // Sample employees
-    const data = [
-      {id:1,name:'Aisha Khan', email:'aisha@example.com', department:'Engineering', role:'Developer', status:'Active', phone:'0300-1111111'},
-      {id:2,name:'Bilal Ahmed', email:'bilal@example.com', department:'Sales', role:'Sales Exec', status:'Active', phone:'0300-2222222'},
-      {id:3,name:'Sana Raza', email:'sana@example.com', department:'HR', role:'HR Manager', status:'On Leave', phone:'0300-3333333'},
-      {id:4,name:'Usman Ali', email:'usman@example.com', department:'Finance', role:'Accountant', status:'Active', phone:'0300-4444444'},
-      {id:5,name:'Mariam Noor', email:'mariam@example.com', department:'Engineering', role:'QA', status:'Inactive', phone:'0300-5555555'},
-      // ... more sample rows
-    ];
+    // Simple client-side data store using localStorage
+    const STORAGE_KEY = 'blood_local_store_v1';
 
-    let filtered = [...data];
-    const pageSize = 5;
-    let currentPage = 1;
+    // Basic blood compatibility map (recipient -> compatible donor groups)
+    const compatibility = {
+      'A+':['A+','A-','O+','O-'],
+      'A-':['A-','O-'],
+      'B+':['B+','B-','O+','O-'],
+      'B-':['B-','O-'],
+      'AB+':['A+','A-','B+','B-','AB+','AB-','O+','O-'],
+      'AB-':['A-','B-','AB-','O-'],
+      'O+':['O+','O-'],
+      'O-':['O-']
+    };
 
-    const tbody = document.getElementById('employeesTbody');
-    const totalEmployeesEl = document.getElementById('totalEmployees');
-    const activeTodayEl = document.getElementById('activeToday');
+    // Utility
+    const $ = id => document.getElementById(id);
 
-    function renderTable() {
-      tbody.innerHTML = '';
-      const start = (currentPage-1)*pageSize;
-      const pageData = filtered.slice(start, start+pageSize);
-      pageData.forEach((emp, idx) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="p-3">${start + idx + 1}</td>
-          <td class="p-3 font-medium">${emp.name}</td>
-          <td class="p-3">${emp.email}</td>
-          <td class="p-3">${emp.department}</td>
-          <td class="p-3">${emp.role}</td>
-          <td class="p-3">${emp.status}</td>
-          <td class="p-3">
-            <button onclick="editEmployee(${emp.id})" class="px-2 py-1 border rounded text-sm">Edit</button>
-            <button onclick="deleteEmployee(${emp.id})" class="px-2 py-1 border rounded text-sm ml-2">Delete</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
+    function loadStore(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      }catch(e){console.error(e);return []}
+    }
+    function saveStore(arr){ localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }
+
+    function addEntry(entry){
+      const arr = loadStore(); arr.push(entry); saveStore(arr); }
+
+    function clearStore(){ localStorage.removeItem(STORAGE_KEY); }
+
+    function renderLists(filterCity=''){
+      const arr = loadStore();
+      const donors = arr.filter(x=>x.role==='donor' && (!filterCity || x.city.toLowerCase()===filterCity.toLowerCase()));
+      const recipients = arr.filter(x=>x.role==='recipient' && (!filterCity || x.city.toLowerCase()===filterCity.toLowerCase()));
+
+      const donorList = $('donorList'); donorList.innerHTML='';
+      donors.forEach((d,i)=>{
+        const el = document.createElement('div'); el.className='entry';
+        el.innerHTML = `<div><strong>${escapeHtml(d.name)}</strong> <span style="color:var(--muted);font-size:13px">${escapeHtml(d.blood)} • ${escapeHtml(d.city)}</span><div style="font-size:12px;color:var(--muted)">${escapeHtml(d.notes||'')}</div></div><div class="pill">${escapeHtml(d.phone||'')}</div>`;
+        donorList.appendChild(el);
       });
 
-      document.getElementById('tableInfo').textContent = `Showing ${Math.min(filtered.length, start+1)} - ${Math.min(filtered.length, start+pageSize)} of ${filtered.length} employees`;
-      totalEmployeesEl.textContent = data.length;
-      activeTodayEl.textContent = data.filter(e=> e.status === 'Active').length;
-    }
-
-    // Filters & Search
-    document.getElementById('globalSearch').addEventListener('input', (e)=>{
-      applyFilters();
-    });
-    document.getElementById('filterDept').addEventListener('change', applyFilters);
-    document.getElementById('filterStatus').addEventListener('change', applyFilters);
-
-    function applyFilters(){
-      const q = document.getElementById('globalSearch').value.trim().toLowerCase();
-      const dept = document.getElementById('filterDept').value;
-      const status = document.getElementById('filterStatus').value;
-
-      filtered = data.filter(emp => {
-        if(dept && emp.department !== dept) return false;
-        if(status && emp.status !== status) return false;
-        if(q){
-          return [emp.name, emp.email, emp.department, emp.role].join(' ').toLowerCase().includes(q);
-        }
-        return true;
+      const recipientList = $('recipientList'); recipientList.innerHTML='';
+      recipients.forEach((r,i)=>{
+        const el = document.createElement('div'); el.className='entry';
+        el.innerHTML = `<div><strong>${escapeHtml(r.name)}</strong> <span style="color:var(--muted);font-size:13px">${escapeHtml(r.blood)} • ${escapeHtml(r.city)}</span><div style="font-size:12px;color:var(--muted)">${escapeHtml(r.notes||'')}</div></div><div class="pill">${escapeHtml(r.phone||'')}</div>`;
+        recipientList.appendChild(el);
       });
-      currentPage = 1;
-      renderTable();
     }
 
-    // Pagination
-    document.getElementById('prevPage').addEventListener('click', ()=>{ if(currentPage>1){ currentPage--; renderTable(); }});
-    document.getElementById('nextPage').addEventListener('click', ()=>{ if(currentPage*pageSize < filtered.length){ currentPage++; renderTable(); }});
-
-    // Modal
-    const modal = document.getElementById('modal');
-    const addBtn = document.getElementById('addEmployeeBtn');
-    const closeModal = document.getElementById('closeModal');
-    const cancelForm = document.getElementById('cancelForm');
-
-    addBtn.addEventListener('click', ()=>{
-      openModal();
-    });
-    closeModal.addEventListener('click', ()=> modal.classList.add('hidden'));
-    cancelForm.addEventListener('click', ()=> modal.classList.add('hidden'));
-
-    function openModal(edit=null){
-      modal.classList.remove('hidden');
-      document.getElementById('employeeForm').reset();
-      document.getElementById('modalTitle').textContent = edit ? 'Edit Employee' : 'Add Employee';
-      if(edit){
-        const emp = data.find(x=> x.id === edit);
-        if(emp){ document.getElementById('name').value = emp.name; document.getElementById('email').value = emp.email; document.getElementById('department').value = emp.department; document.getElementById('role').value = emp.role; document.getElementById('status').value = emp.status; document.getElementById('phone').value = emp.phone; document.getElementById('employeeForm').dataset.editId = emp.id; }
-      } else delete document.getElementById('employeeForm').dataset.editId;
+    function findMatches(){
+      const arr = loadStore();
+      const recipients = arr.filter(x=>x.role==='recipient');
+      const donors = arr.filter(x=>x.role==='donor');
+      const results = [];
+      recipients.forEach(r=>{
+        const city = r.city.trim().toLowerCase();
+        const allowed = compatibility[r.blood] || [r.blood];
+        const matched = donors.filter(d=>d.city.trim().toLowerCase()===city && allowed.includes(d.blood));
+        if(matched.length) results.push({recipient:r, donors:matched});
+      });
+      showMatchResults(results);
     }
 
-    document.getElementById('employeeForm').addEventListener('submit',(e)=>{
-      e.preventDefault();
-      const form = e.target;
-      const record = {
-        id: form.dataset.editId ? Number(form.dataset.editId) : (Math.max(0,...data.map(d=>d.id))+1),
-        name: document.getElementById('name').value.trim(),
-        email: document.getElementById('email').value.trim(),
-        department: document.getElementById('department').value,
-        role: document.getElementById('role').value.trim(),
-        status: document.getElementById('status').value,
-        phone: document.getElementById('phone').value.trim()
-      };
+    function showMatchResults(results){
+      const donorList = $('donorList'); donorList.innerHTML='';
+      const recipientList = $('recipientList'); recipientList.innerHTML='';
 
-      if(form.dataset.editId){
-        const idx = data.findIndex(d=> d.id === record.id);
-        data[idx] = record;
-      } else {
-        data.push(record);
-      }
-      modal.classList.add('hidden');
-      applyFilters();
+      if(results.length===0){ donorList.innerHTML='<div style="padding:10px;color:var(--muted)">No matches found</div>'; recipientList.innerHTML=''; return }
+
+      results.forEach(group=>{
+        const r = group.recipient;
+        const recEl = document.createElement('div'); recEl.className='entry match';
+        recEl.innerHTML = `<div><strong>${escapeHtml(r.name)}</strong> <div style="font-size:13px;color:var(--muted)">${escapeHtml(r.blood)} • ${escapeHtml(r.city)} — Recipient</div></div><div class="pill">${escapeHtml(r.phone||'')}</div>`;
+        recipientList.appendChild(recEl);
+
+        group.donors.forEach(d=>{
+          const el = document.createElement('div'); el.className='entry';
+          el.innerHTML = `<div><strong>${escapeHtml(d.name)}</strong> <div style="font-size:13px;color:var(--muted)">${escapeHtml(d.blood)} • ${escapeHtml(d.city)} — Donor</div></div><div class="pill">${escapeHtml(d.phone||'')}</div>`;
+          donorList.appendChild(el);
+        });
+      });
+    }
+
+    // Very small sanitizer for innerHTML usage below
+    function escapeHtml(str){ if(!str && str!==0) return ''; return String(str).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+    // load listeners
+    document.addEventListener('DOMContentLoaded', ()=>{
+      renderLists();
+
+      $('entryForm').addEventListener('submit', e=>{
+        e.preventDefault();
+        const name = $('name').value.trim();
+        const role = $('role').value;
+        const blood = $('blood').value;
+        const city = $('city').value.trim();
+        const phone = $('phone').value.trim();
+        const notes = $('notes').value.trim();
+        if(!name || !city){ alert('Please fill name and city'); return }
+        addEntry({id:Date.now(), name, role, blood, city, phone, notes, created:new Date().toISOString()});
+        $('entryForm').reset();
+        renderLists($('filterCity').value.trim());
+      });
+
+      $('showLists').addEventListener('click', ()=> renderLists($('filterCity').value.trim()));
+      $('findMatches').addEventListener('click', ()=> findMatches());
+
+      $('clearBtn').addEventListener('click', ()=>{
+        if(confirm('Clear all saved entries?')){ clearStore(); renderLists(); }
+      });
+
+      $('seedBtn').addEventListener('click', ()=>{
+        const sample = [
+          {id:1,name:'Ali Khan',role:'donor',blood:'O-',city:'Lahore',phone:'+92 300 0000001',notes:'Available daily'},
+          {id:2,name:'Sara Ahmed',role:'donor',blood:'A+',city:'Lahore',phone:'+92 300 0000002',notes:''},
+          {id:3,name:'Bilal Raza',role:'recipient',blood:'A+',city:'Lahore',phone:'+92 300 0000003',notes:'Urgent within 48h'},
+          {id:4,name:'Hina Q',role:'recipient',blood:'O-',city:'Karachi',phone:'+92 300 0000004',notes:''}
+        ];
+        saveStore(sample); renderLists();
+      });
+
+      $('exportBtn').addEventListener('click', ()=>{
+        const data = loadStore();
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'blood-data.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      });
+
+      $('importBtn').addEventListener('click', ()=> $('importFile').click());
+      $('importFile').addEventListener('change', async ev=>{
+        const f = ev.target.files[0]; if(!f) return;
+        try{
+          const txt = await f.text(); const parsed = JSON.parse(txt);
+          if(!Array.isArray(parsed)) throw new Error('JSON must be an array of entries');
+          saveStore(parsed); renderLists(); alert('Imported '+parsed.length+' entries');
+        }catch(err){ alert('Import failed: '+err.message) }
+        ev.target.value='';
+      });
     });
 
-    // Edit / Delete functions
-    window.editEmployee = function(id){ openModal(id); }
-    window.deleteEmployee = function(id){ if(confirm('Delete this employee?')){ const idx = data.findIndex(d=> d.id===id); if(idx>-1){ data.splice(idx,1); applyFilters(); } }}
-
-    // initial render
-    applyFilters();
   </script>
 </body>
 </html>
